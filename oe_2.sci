@@ -1,35 +1,50 @@
+// Copyright (C) 2015 - IIT Bombay - FOSSEE
+//
+// This file must be used under the terms of the CeCILL.
+// This source file is licensed as described in the file COPYING, which
+// you should have received as part of this distribution.  The terms
+// are also available at
+// http://www.cecill.info/licences/Licence_CeCILL_V2-en.txt
+// Authors: Harpreet, Ashutosh
+// Organization: FOSSEE, IIT Bombay
 
 function [theta_bj,opt_err,resid] =  oe_2(varargin)
-//
+
+// Estimates Discrete time BJ model
+// y(t) = [B(q)/F(q)]u(t) + [C(q)/D(q)]e(t)
+// Current version uses random initial guess
+// Need to get appropriate guess from OE and noise models
+
 	[lhs , rhs] = argn();	
-//	if ( rhs < 2 ) then
-//			errmsg = msprintf(gettext("%s: Unexpected number of input arguments : %d provided while should be 2"), "bj", rhs);
-//			error(errmsg)
-//	end
-//
+	if ( rhs < 2 ) then
+			errmsg = msprintf(gettext("%s: Unexpected number of input arguments : %d provided while should be 2"), "oe_2", rhs);
+			error(errmsg)
+	end
+
+
 	z = varargin(1)
-//	if ((~size(z,2)==2) & (~size(z,1)==2)) then
-//		errmsg = msprintf(gettext("%s: input and output data matrix should be of size (number of data)*2"), "bj");
-//		error(errmsg);
-//	end
-//
-//	if (~isreal(z)) then
-//		errmsg = msprintf(gettext("%s: input and output data matrix should be a real matrix"), "bj");
-//		error(errmsg);
-//	end
+	if ((~size(z,2)==2) & (~size(z,1)==2)) then
+		errmsg = msprintf(gettext("%s: input and output data matrix should be of size (number of data)*2"), "oe_2");
+		error(errmsg);
+	end
+
+	if (~isreal(z)) then
+		errmsg = msprintf(gettext("%s: input and output data matrix should be a real matrix"), "oe_2");
+		error(errmsg);
+	end
 //
 	n = varargin(2)
-//	if (size(n,"*")<4| size(n,"*")>5) then
-//		errmsg = msprintf(gettext("%s: The order and delay matrix [nb nc nd nf nk] should be of size [4 5]"), "bj");
-//		error(errmsg);
-//	end
+	if (size(n,"*")<2| size(n,"*")>3) then
+		errmsg = msprintf(gettext("%s: The order and delay matrix [nb nf nk] should be of size [2 4]"), "oe_2");
+		error(errmsg);
+	end
+
+	if (size(find(n<0),"*") | size(find(((n-floor(n))<%eps)== %f))) then
+		errmsg = msprintf(gettext("%s: values of order and delay matrix [nb nf nk] should be nonnegative integer number "), "oe_2");
+		error(errmsg);
+	end
 //
-//	if (size(find(n<0),"*") | size(find(((n-floor(n))<%eps)== %f))) then
-//		errmsg = msprintf(gettext("%s: values of order and delay matrix [nb nc nd nf nk] should be nonnegative integer number "), "bj");
-//		error(errmsg);
-//	end
-//
-	nf= n(1); nb = n(2); //nk = n(3); //nf = n(4);
+	nb= n(1); nf = n(2);
 //	
 	if (size(n,"*") == 2) then
 		nk = 1
@@ -44,20 +59,18 @@ function [theta_bj,opt_err,resid] =  oe_2(varargin)
     function e = G(p,m)
         e = YDATA - _objfun(UDATA,YDATA,p,nf,nb,nk);
     endfunction
-    tempSum = na+nb
-    p0 = linspace(0.1,0.9,tempSum)';
-    disp(p0)
+    tempSum = nf+nb
+    p0 = linspace(0.4,0.6,tempSum)';
     [var,errl] = lsqrsolve(p0,G,size(UDATA,"*"));
-    disp(var)
     err = (norm(errl)^2);
     opt_err = err;
 	resid = G(var,[]);
-    f = poly([1 var(nb+1:nb+nf)]',"q","coeff");
+    f = poly([1; var(nb+1:nb+nf)],"q","coeff");
     b = poly([repmat(0,nk,1);var(1:nb)]',"q","coeff");
     p = struct('B',b,'F',f);
     disp('Discrete time model: y(t) = [B(x)/F(x)]u(t) + e(t)');
     theta_bj = p;
-    disp(theta_bj)
+    disp(theta_bj);
 endfunction
 
 function yhat = _objfun(UDATA,YDATA,x,nf,nb,nk)
@@ -79,6 +92,6 @@ function yhat = _objfun(UDATA,YDATA,x,nf,nb,nk)
         for ii = 1:size(fSize,"*")
             tempF = tempF + fSize(ii)*yhat(k-ii)
         end
-        yhat = [yhat; [ tempF+tempB ]];
+        yhat = [yhat; [ tempB + tempF ]];
     end
 endfunction
